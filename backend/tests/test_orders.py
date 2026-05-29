@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.models.order import SwapOrder
 from app.schemas.order import OrderResponse
@@ -54,6 +54,42 @@ class TestOrderSchemas:
         resp = OrderResponse(**data)
         assert resp.id == "order-001"
         assert resp.status == "open"
+
+
+class TestListOrders:
+    @pytest.mark.anyio
+    async def test_rejects_invalid_status_filter(self):
+        from app.routes.orders import list_orders
+        from fastapi import HTTPException
+
+        db = AsyncMock()
+        with pytest.raises(HTTPException) as exc_info:
+            await list_orders(status="bogus", db=db)
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid order status" in exc_info.value.detail
+        db.execute.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_accepts_case_insensitive_valid_status_filter(self):
+        from app.routes.orders import list_orders
+
+        db = AsyncMock()
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = []
+        db.execute = AsyncMock(return_value=result)
+
+        with patch("app.routes.orders.get_redis", return_value=MagicMock()):
+            with patch("app.routes.orders.CacheService") as cache_cls:
+                cache = MagicMock()
+                cache.get = AsyncMock(return_value=None)
+                cache.set = AsyncMock()
+                cache_cls.return_value = cache
+
+                response = await list_orders(status="OPEN", db=db)
+
+        assert response == []
+        db.execute.assert_called_once()
 
 
 class TestOrderMatchingService:

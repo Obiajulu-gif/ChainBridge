@@ -21,7 +21,10 @@ class TestListSwaps:
         mock_db.execute = AsyncMock(return_value=result_mock)
 
         result = await list_swaps(db=mock_db)
-        assert result == []
+        assert result.items == []
+        assert result.limit == 50
+        assert result.offset == 0
+        assert result.count == 0
 
     @pytest.mark.anyio
     async def test_list_swaps_filters_by_chain(self):
@@ -33,7 +36,7 @@ class TestListSwaps:
         mock_db.execute = AsyncMock(return_value=result_mock)
 
         result = await list_swaps(chain="bitcoin", db=mock_db)
-        assert result == []
+        assert result.items == []
         mock_db.execute.assert_called_once()
 
     @pytest.mark.anyio
@@ -46,7 +49,7 @@ class TestListSwaps:
         mock_db.execute = AsyncMock(return_value=result_mock)
 
         result = await list_swaps(state="initiated", db=mock_db)
-        assert result == []
+        assert result.items == []
 
     @pytest.mark.anyio
     async def test_list_swaps_respects_limit(self):
@@ -58,7 +61,39 @@ class TestListSwaps:
         mock_db.execute = AsyncMock(return_value=result_mock)
 
         result = await list_swaps(limit=10, offset=5, db=mock_db)
-        assert result == []
+        assert result.items == []
+        assert result.limit == 10
+        assert result.offset == 5
+        assert result.count == 0
+
+    @pytest.mark.anyio
+    async def test_list_swaps_returns_filtered_pagination_metadata(self):
+        from app.routes.swaps import list_swaps
+
+        swap = MagicMock()
+        swap.id = "swap-001"
+        swap.onchain_id = None
+        swap.stellar_htlc_id = None
+        swap.other_chain = "bitcoin"
+        swap.other_chain_tx = None
+        swap.stellar_party = "GABC"
+        swap.other_party = "bc1q"
+        swap.state = "initiated"
+        swap.created_at = None
+
+        mock_db = AsyncMock()
+        result_mock = MagicMock()
+        result_mock.scalars.return_value.all.return_value = [swap]
+        mock_db.execute = AsyncMock(return_value=result_mock)
+
+        result = await list_swaps(chain="bitcoin", state="initiated", limit=25, offset=50, db=mock_db)
+
+        assert result.count == 1
+        assert result.limit == 25
+        assert result.offset == 50
+        assert result.items[0].id == "swap-001"
+        assert result.items[0].other_chain == "bitcoin"
+        assert result.items[0].state == "initiated"
 
 
 class TestGetSwap:

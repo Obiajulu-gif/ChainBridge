@@ -16,6 +16,7 @@ from app.schemas.swap import (
     BatchProofItemResult,
     BatchProofRequest,
     BatchProofResponse,
+    SwapListResponse,
     SwapResponse,
     SwapProof,
 )
@@ -26,7 +27,7 @@ from app.ws.events import emit_swap_event, EventType
 router = APIRouter()
 
 
-@router.get("/", response_model=list[SwapResponse])
+@router.get("/", response_model=SwapListResponse)
 async def list_swaps(
     chain: Annotated[Optional[str], Query()] = None,
     state: Annotated[Optional[str], Query()] = None,
@@ -43,7 +44,8 @@ async def list_swaps(
 
     result = await db.execute(query)
     swaps = result.scalars().all()
-    return [SwapResponse.model_validate(s) for s in swaps]
+    items = [SwapResponse.model_validate(s) for s in swaps]
+    return SwapListResponse(items=items, limit=limit, offset=offset, count=len(items))
 
 
 @router.get("/{swap_id}", response_model=SwapResponse)

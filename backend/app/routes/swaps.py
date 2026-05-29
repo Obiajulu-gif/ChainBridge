@@ -25,6 +25,21 @@ from app.ws.events import emit_swap_event, EventType
 
 router = APIRouter()
 
+ALLOWED_SWAP_STATES = {"initiated", "pending", "locked", "executed", "refunded", "expired", "failed", "cancelled"}
+
+
+def validate_swap_state_filter(state: Optional[str]) -> Optional[str]:
+    if state is None:
+        return None
+    normalized = state.lower()
+    if normalized not in ALLOWED_SWAP_STATES:
+        allowed = ", ".join(sorted(ALLOWED_SWAP_STATES))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid swap state '{state}'. Allowed values: {allowed}",
+        )
+    return normalized
+
 
 @router.get("/", response_model=list[SwapResponse])
 async def list_swaps(
@@ -34,6 +49,7 @@ async def list_swaps(
     offset: Annotated[int, Query(ge=0)] = 0,
     db: AsyncSession = Depends(get_db),
 ):
+    state = validate_swap_state_filter(state)
     query = select(CrossChainSwap)
     if chain:
         query = query.where(CrossChainSwap.other_chain == chain)

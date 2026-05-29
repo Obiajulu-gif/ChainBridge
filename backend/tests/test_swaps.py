@@ -49,6 +49,33 @@ class TestListSwaps:
         assert result == []
 
     @pytest.mark.anyio
+    async def test_list_swaps_rejects_invalid_state_filter(self):
+        from app.routes.swaps import list_swaps
+        from fastapi import HTTPException
+
+        mock_db = AsyncMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            await list_swaps(state="unknown", db=mock_db)
+
+        assert exc_info.value.status_code == 400
+        assert "Invalid swap state" in exc_info.value.detail
+        mock_db.execute.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_list_swaps_accepts_case_insensitive_valid_state_filter(self):
+        from app.routes.swaps import list_swaps
+
+        mock_db = AsyncMock()
+        result_mock = MagicMock()
+        result_mock.scalars.return_value.all.return_value = []
+        mock_db.execute = AsyncMock(return_value=result_mock)
+
+        result = await list_swaps(state="EXECUTED", db=mock_db)
+        assert result == []
+        mock_db.execute.assert_called_once()
+
+    @pytest.mark.anyio
     async def test_list_swaps_respects_limit(self):
         from app.routes.swaps import list_swaps
 

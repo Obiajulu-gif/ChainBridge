@@ -25,6 +25,13 @@ class SwapResponse(BaseModel):
         from_attributes = True
 
 
+class SwapListResponse(BaseModel):
+    items: list[SwapResponse]
+    limit: int
+    offset: int
+    count: int
+
+
 # ─── Batch proof schemas ──────────────────────────────────────────────────────
 
 class SwapProofItem(BaseModel):
